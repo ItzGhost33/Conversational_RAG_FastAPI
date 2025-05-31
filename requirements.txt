@@ -1,0 +1,21 @@
+transformers
+huggingface_hub
+python-dotenv
+sentence-transformers
+pinecone==5.4.2
+# openai
+streamlit
+openpyxl
+faiss-cpu>=1.7.3.post2
+langchain
+langchain-community
+langchain_groq
+python-multipart
+fastapi
+uvicorn
+
+
+# python-dotenv==0.21.0
+# sentence-transformers==2.2.2
+# pinecone
+# openai==0.27.2

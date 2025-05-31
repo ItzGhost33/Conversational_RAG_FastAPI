@@ -1,0 +1,7 @@
+__pycache__
+data
+faiss_index
+ragfapi
+.env
+test_rag.db
+testing.ipynb
