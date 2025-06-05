@@ -13,6 +13,8 @@ langchain_groq
 python-multipart
 fastapi
 uvicorn
+sqlalchemy
+pyodbc  
 
 
 # python-dotenv==0.21.0

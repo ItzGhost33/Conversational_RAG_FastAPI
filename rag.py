@@ -4,7 +4,7 @@ from prompts import system_prompt, contextualize_q_system_prompt, qa_system_prom
 from llm import llm
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
-from db_test import insert_log, get_chat_history,create_application_logs
+from chat_logger import insert_log, get_chat_history
 
 
 
@@ -14,7 +14,6 @@ def get_msg_content(msg):
 
 def rag_service(user_query,chat_history,retriever,session_id):
 
-    create_application_logs()
     chat_history = get_chat_history(session_id)
     contextualize_prompt = ChatPromptTemplate.from_messages([
             ("system", contextualize_q_system_prompt),

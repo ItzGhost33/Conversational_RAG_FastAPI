@@ -1,12 +1,10 @@
 from fastapi import FastAPI
-from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from rag import rag_service
 from llm import llm  
 from langchain.vectorstores import FAISS
 from langchain.embeddings import HuggingFaceEmbeddings
-from typing import Optional
-
+from models import QueryRequest
 
 shared_state = {}
 
@@ -25,10 +23,6 @@ async def lifespan(app: FastAPI):
     print("App shutdown — releasing resources")
 
 app = FastAPI(lifespan=lifespan)
-
-class QueryRequest(BaseModel):
-    query: str
-    session_id: Optional[str]
 
 
 @app.get("/")

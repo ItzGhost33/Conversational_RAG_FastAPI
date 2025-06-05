@@ -5,3 +5,4 @@ ragfapi
 .env
 test_rag.db
 testing.ipynb
+db_test.py
