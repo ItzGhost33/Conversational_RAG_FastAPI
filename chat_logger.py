@@ -3,8 +3,7 @@ from db import SessionLocal, ApplicationLog, init_db
 # Ensure tables exist
 init_db()
 
-def insert_log(session_id, user_query, get_response):
-    db = SessionLocal()
+def insert_log(session_id, user_query, get_response,db):
     log = ApplicationLog(
         session_id=session_id,
         user_query=user_query,
@@ -12,10 +11,8 @@ def insert_log(session_id, user_query, get_response):
     )
     db.add(log)
     db.commit()
-    db.close()
 
-def get_chat_history(session_id):
-    db = SessionLocal()
+def get_chat_history(session_id, db):
     logs = db.query(ApplicationLog).filter_by(session_id=session_id).order_by(ApplicationLog.created_at.desc()).all()
     messages = []
 
@@ -25,5 +22,4 @@ def get_chat_history(session_id):
             {"role": "ai", "content": row.response}
         ])
     
-    db.close()
     return messages

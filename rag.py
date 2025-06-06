@@ -12,9 +12,9 @@ def get_msg_content(msg):
     return msg.content
 
 
-def rag_service(user_query,chat_history,retriever,session_id):
+def rag_service(user_query,chat_history,retriever,session_id,db):
 
-    chat_history = get_chat_history(session_id)
+    chat_history = get_chat_history(session_id,db)
     contextualize_prompt = ChatPromptTemplate.from_messages([
             ("system", contextualize_q_system_prompt),
             MessagesPlaceholder("chat_history"),
@@ -40,8 +40,8 @@ def rag_service(user_query,chat_history,retriever,session_id):
     rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
     results = rag_chain.invoke({"input": user_query, "chat_history": chat_history})
 
-    insert_log(session_id, user_query, results['answer'].strip())
-    chat_history = get_chat_history(session_id)
+    insert_log(session_id, user_query, results['answer'].strip(),db)
+    chat_history = get_chat_history(session_id,db)
 
     return results['answer'].strip(),session_id,chat_history
 
