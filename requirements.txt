@@ -15,7 +15,9 @@ fastapi
 uvicorn
 sqlalchemy
 pyodbc  
-
+passlib
+bcrypt
+pydantic[email]
 
 # python-dotenv==0.21.0
 # sentence-transformers==2.2.2

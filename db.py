@@ -20,6 +20,16 @@ class ApplicationLog(Base):
     response = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+
+class UserDetails(Base):
+    __tablename__ = "user_detalis"
+
+    id = Column(Integer, primary_key=True, index = True)
+    username = Column(String, nullable=False)
+    email = Column(String, nullable=False)
+    password = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 # Create tables
 def init_db():
     Base.metadata.create_all(bind=engine)

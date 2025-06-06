@@ -2,15 +2,16 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from rag import rag_service
 from llm import llm
-from pydantic import BaseModel
+from pydantic import BaseModel,EmailStr
 from typing import Optional  
 from langchain.vectorstores import FAISS
 from langchain.embeddings import HuggingFaceEmbeddings
-from schemas import RagResult
-from db import get_db, ApplicationLog
+from schemas import RagResult, GetUserResponse
+from db import get_db, ApplicationLog, UserDetails
 from sqlalchemy.orm import Session
-from fastapi import Depends, status
+from fastapi import Depends, status, HTTPException
 from chat_logger import get_chat_history
+from passlib.context import CryptContext
 
 
 
@@ -32,6 +33,9 @@ async def lifespan(app: FastAPI):
  
 app = FastAPI(lifespan=lifespan)
 
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
 
 @app.get("/")
 def read_root():
@@ -42,6 +46,12 @@ def read_root():
 class QueryRequest(BaseModel):
     query: str
     session_id: Optional[str]
+
+
+class UserCreate(BaseModel):
+    username: str
+    email: EmailStr
+    password: str
 
 
 
@@ -76,6 +86,51 @@ def get_all_user_histories(db: Session = Depends(get_db)):
         )
     
     return all_histories
+
+
+@app.post('/create_user', status_code=status.HTTP_201_CREATED)
+def create_user(user: UserCreate,db: Session = Depends(get_db)):
+    hashed_password = pwd_context.hash(user.password)
+    existing_user = db.query(UserDetails).filter(
+        (UserDetails.username == user.username) | (UserDetails.email == user.email)
+    ).first()
+    
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Username or email already exists")
+    
+    new_user = UserDetails(
+        username=user.username,
+        email=user.email,
+        password=hashed_password,
+    )
+
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return {
+        "id": new_user.id,
+        "username": new_user.username,
+        "email": new_user.email,
+        "created_at": new_user.created_at
+    }  
+
+
+
+@app.get("/user/{username}", status_code=status.HTTP_200_OK,response_model=GetUserResponse)
+def get_user_by_username(username: str, db: Session = Depends(get_db)):
+    user = db.query(UserDetails).filter(UserDetails.username == username).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return {
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "created_at": user.created_at
+    }
+
 
 
 
