@@ -6,12 +6,14 @@ from pydantic import BaseModel,EmailStr
 from typing import Optional  
 from langchain.vectorstores import FAISS
 from langchain.embeddings import HuggingFaceEmbeddings
-from schemas import RagResult, GetUserResponse
+from schemas import RagResult, GetUserResponse, TokenData
 from db import get_db, ApplicationLog, UserDetails
 from sqlalchemy.orm import Session
 from fastapi import Depends, status, HTTPException
 from chat_logger import get_chat_history
-from passlib.context import CryptContext
+from routers import authentication
+from hashing import get_password_hash
+from oauth2 import get_current_user
 
 
 
@@ -32,8 +34,7 @@ async def lifespan(app: FastAPI):
     print("App shutdown — releasing resources")
  
 app = FastAPI(lifespan=lifespan)
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+app.include_router(authentication.router, tags=["auth"])
 
 
 
@@ -90,7 +91,8 @@ def get_all_user_histories(db: Session = Depends(get_db)):
 
 @app.post('/create_user', status_code=status.HTTP_201_CREATED)
 def create_user(user: UserCreate,db: Session = Depends(get_db)):
-    hashed_password = pwd_context.hash(user.password)
+    hashed_password = get_password_hash(user.password)
+    # hashed_password = pwd_context.hash(user.password)
     existing_user = db.query(UserDetails).filter(
         (UserDetails.username == user.username) | (UserDetails.email == user.email)
     ).first()
@@ -118,7 +120,10 @@ def create_user(user: UserCreate,db: Session = Depends(get_db)):
 
 
 @app.get("/user/{username}", status_code=status.HTTP_200_OK,response_model=GetUserResponse)
-def get_user_by_username(username: str, db: Session = Depends(get_db)):
+def get_user_by_username(username: str, 
+                         db: Session = Depends(get_db),
+                         current_user: TokenData = Depends(get_current_user)
+                         ):
     user = db.query(UserDetails).filter(UserDetails.username == username).first()
     
     if not user:
