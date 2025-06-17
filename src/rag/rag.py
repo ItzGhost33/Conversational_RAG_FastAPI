@@ -1,10 +1,10 @@
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.prompts import MessagesPlaceholder
-from prompts import system_prompt, contextualize_q_system_prompt, qa_system_prompt
-from llm import llm
+from src.common.prompts import system_prompt, contextualize_q_system_prompt, qa_system_prompt
+from src.common.llm import llm
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
-from chat_logger import insert_log, get_chat_history
+from src.common.chat_logger import insert_log, get_chat_history
 
 
 
@@ -12,7 +12,7 @@ def get_msg_content(msg):
     return msg.content
 
 
-def rag_service(user_query,chat_history,retriever,session_id,db):
+def rag_service(user_query,chat_history,retriever,username,session_id,db):
 
     chat_history = get_chat_history(session_id,db)
     contextualize_prompt = ChatPromptTemplate.from_messages([
@@ -40,7 +40,7 @@ def rag_service(user_query,chat_history,retriever,session_id,db):
     rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
     results = rag_chain.invoke({"input": user_query, "chat_history": chat_history})
 
-    insert_log(session_id, user_query, results['answer'].strip(),db)
+    insert_log(session_id, username, user_query, results['answer'].strip(),db)
     chat_history = get_chat_history(session_id,db)
 
     return results['answer'].strip(),session_id,chat_history

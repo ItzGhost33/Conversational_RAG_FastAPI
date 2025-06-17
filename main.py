@@ -1,20 +1,20 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from rag import rag_service
-from llm import llm
+from src.rag.rag import rag_service
+from src.common.llm import llm
 from pydantic import BaseModel,EmailStr
 from typing import Optional  
 from langchain.vectorstores import FAISS
 from langchain.embeddings import HuggingFaceEmbeddings
-from schemas import RagResult, GetUserResponse, TokenData
-from db import get_db, ApplicationLog, UserDetails
+from src.models.schemas import RagResult, GetUserResponse, TokenData
+from src.common.db import get_db, ApplicationLog, UserDetails, SessionStore
 from sqlalchemy.orm import Session
 from fastapi import Depends, status, HTTPException
-from chat_logger import get_chat_history
-from routers import authentication
-from hashing import get_password_hash
-from oauth2 import get_current_user
-
+from src.common.chat_logger import get_chat_history, get_or_create_active_session
+from src.routers import authentication
+from src.auth.hashing import get_password_hash
+from src.auth.oauth2 import get_current_user
+import hashlib
 
 
 shared_state = {}
@@ -47,9 +47,11 @@ def read_root():
 class QueryRequest(BaseModel):
     query: str
     session_id: Optional[str]
+    username: Optional[str]
 
 
 class UserCreate(BaseModel):
+    user_id: str
     username: str
     email: EmailStr
     password: str
@@ -92,7 +94,6 @@ def get_all_user_histories(db: Session = Depends(get_db)):
 @app.post('/create_user', status_code=status.HTTP_201_CREATED)
 def create_user(user: UserCreate,db: Session = Depends(get_db)):
     hashed_password = get_password_hash(user.password)
-    # hashed_password = pwd_context.hash(user.password)
     existing_user = db.query(UserDetails).filter(
         (UserDetails.username == user.username) | (UserDetails.email == user.email)
     ).first()
@@ -100,7 +101,11 @@ def create_user(user: UserCreate,db: Session = Depends(get_db)):
     if existing_user:
         raise HTTPException(status_code=400, detail="Username or email already exists")
     
+    unique_string = f"{user.username.lower()}_{user.email.lower()}"
+    user_id = hashlib.sha256(unique_string.encode()).hexdigest()
+    
     new_user = UserDetails(
+        user_id=user_id,
         username=user.username,
         email=user.email,
         password=hashed_password,
@@ -111,7 +116,8 @@ def create_user(user: UserCreate,db: Session = Depends(get_db)):
     db.refresh(new_user)
 
     return {
-        "id": new_user.id,
+        # "id": new_user.id,
+        "user_id": new_user.user_id,
         "username": new_user.username,
         "email": new_user.email,
         "created_at": new_user.created_at
@@ -130,32 +136,86 @@ def get_user_by_username(username: str,
         raise HTTPException(status_code=404, detail="User not found")
 
     return {
-        "id": user.id,
+        "id": user.user_id,
         "username": user.username,
         "email": user.email,
         "created_at": user.created_at
     }
 
 
+@app.get("/user_sessions/{username}", status_code=status.HTTP_200_OK)
+def get_user_sessions(
+    username: str,
+    db: Session = Depends(get_db),
+    current_user: TokenData = Depends(get_current_user),
+):
+    # Ensure the requester is the same as the one whose data is being fetched
+    if current_user.username != username:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    user = db.query(UserDetails).filter(UserDetails.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    sessions = db.query(SessionStore).filter(SessionStore.username == user.username).order_by(SessionStore.created_at.desc()).all()
+
+    if not sessions:
+        raise HTTPException(status_code=404, detail="No sessions found for this user.")
+
+    return {
+        "user_id": user.user_id,
+        "username": username,
+        "session_ids": [
+            {
+                "session_id": s.session_id,
+                "created_at": s.created_at,
+                "is_active": s.is_active
+            }
+            for s in sessions
+        ]
+    }
 
 
-@app.post("/rag", status_code = status.HTTP_201_CREATED, response_model=RagResult)
+
+
+@app.post("/rag", status_code = status.HTTP_200_OK, response_model=RagResult)
 async def rag_endpoint(
     request: QueryRequest,
     db: Session = Depends(get_db),
+    current_user: TokenData = Depends(get_current_user),
     ):
 
-    session_id = request.session_id or "anonymous"
+    username = current_user.username or request.username
+    session_id = get_or_create_active_session(username, db) or  request.session_id
     response,session_id, chat_history = rag_service(
         user_query=request.query,
         chat_history=[],
         retriever=shared_state["retriever"],
         session_id=session_id,
+        username=username,
         db = db
     )
     return {
         "answer": response,
         "session_id": session_id,
+        "username": username
         # "history": chat_history
     }
 
+
+
+@app.post("/end_session", status_code=status.HTTP_200_OK)
+def end_session(
+    db: Session = Depends(get_db),
+    current_user: TokenData = Depends(get_current_user),
+):
+    session = db.query(SessionStore).filter(
+        SessionStore.username == current_user.username,
+        SessionStore.is_active == "true"
+    ).order_by(SessionStore.created_at.desc()).first()
+
+    if session:
+        session.is_active = "false"
+        db.commit()
+
+    return {"detail": "Session ended"}

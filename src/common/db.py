@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import declarative_base, sessionmaker
 from datetime import datetime
 
@@ -15,6 +15,7 @@ class ApplicationLog(Base):
     __tablename__ = "application_logs"
 
     id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, nullable=False, index=True)
     session_id = Column(String, index=True)
     user_query = Column(Text)
     response = Column(Text)
@@ -24,11 +25,21 @@ class ApplicationLog(Base):
 class UserDetails(Base):
     __tablename__ = "user_detalis"
 
-    id = Column(Integer, primary_key=True, index = True)
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String,nullable=False)
     username = Column(String, nullable=False)
     email = Column(String, nullable=False)
     password = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class SessionStore(Base):
+    __tablename__ = "session_store"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(String, unique=True, index=True)
+    username = Column(String, ForeignKey("user_detalis.username"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    is_active = Column(String, default="true")
 
 # Create tables
 def init_db():

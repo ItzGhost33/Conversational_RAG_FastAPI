@@ -6,3 +6,4 @@ ragfapi
 test_rag.db
 testing.ipynb
 db_test.py
+src\common\.env
