@@ -19,6 +19,11 @@ passlib
 bcrypt
 pydantic[email]
 python-jose
+langgraph
+bs4
+langchain-deepseek
+langchain_huggingface
+tavily-python
 
 # python-dotenv==0.21.0
 # sentence-transformers==2.2.2

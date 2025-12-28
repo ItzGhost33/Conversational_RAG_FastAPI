@@ -1,15 +1,15 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from src.common.llm import llm
-from langchain.vectorstores import FAISS
-from langchain.embeddings import HuggingFaceEmbeddings
+from src.common.llm import llm_2
+from langchain_huggingface.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import FAISS
 from src.routers import authentication, user
 from src.models.schemas import QueryRequest, RagResult, TokenData
 from sqlalchemy.orm import Session
 from fastapi import Depends, status
 from src.common.chat_logger import get_or_create_active_session
 from src.auth.oauth2 import get_current_user
-from src.rag.rag import rag_service
+from src.agentic_rag.rag import rag_service
 from src.common.db import get_db, SessionStore
 
 
@@ -25,7 +25,7 @@ async def lifespan(app: FastAPI):
     embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     retriever = FAISS.load_local("faiss_index", embedding_model,allow_dangerous_deserialization=True).as_retriever()
 
-    shared_state["llm"] = llm
+    shared_state["llm"] = llm_2
     shared_state["retriever"] = retriever
 
     yield
@@ -55,7 +55,7 @@ async def rag_endpoint(
     response,session_id, chat_history = rag_service(
         user_query=request.query,
         chat_history=[],
-        retriever=shared_state["retriever"],
+        # retriever=shared_state["retriever"],
         session_id=session_id,
         username=username,
         db = db
